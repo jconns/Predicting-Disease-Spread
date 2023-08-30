@@ -57,7 +57,7 @@ Within EDA, my goal is to explore the nature of our target variable (total_cases
 For this purpose, I used regression analysis to determine appropriate variables for inclusion in our final models. Variables were also selected through inclusion in a model that proved to minimize the BIC criterion.
 
 # Model Results on Training Data
-RandomForest = 22 AME
+RandomForest = 22 MAE
 
 Tree Model = 32 MAE
 
