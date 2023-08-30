@@ -49,8 +49,14 @@ Within EDA, my goal is to explore the nature of our target variable (total_cases
 
 For this purpose, I used regression analysis to determine appropriate variables for inclusion in our final models. Variables were also selected through inclusion in a model that proved to minimize the BIC criterion.
 
-Show table of model results
-I used a random forest classification model.
+# Model Results on Training Data
+RandomForest = 22 AME
+Tree Model = 32 MAE
+BART Model = 30 MAE
+Dynamic Forecast = 29 MAE
+ARIMA Model = 27 MAE
+
+The randomForest model performed the best on the training data. However, the model performed worse on the test data. This is to be somewhat expected, but the difference was too large. The Arima and Dynamic model were also used for final submissions where the Arima scored the lowest MAE of 29.
 
 # Proof of Submission
 <img width="468" alt="image" src="https://github.com/jconns/Predicting-Disease-Spread/assets/48659723/f8c688ee-b4c0-4b16-8e41-087cce210ccf">
