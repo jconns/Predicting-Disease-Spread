@@ -1,3 +1,201 @@
+## Build & Train predictive models
+library(caTools)
+### train and test from training set
+set.seed(123)
+split <- sample.split(training_clean, SplitRatio=0.8)
+
+train <- subset(training_clean, split==T)
+test <- subset(training_clean, split==F)
+
+train_indices <- which(split == TRUE)  # Get the indices of the training set
+test_indices <- which(split == FALSE)
+
+unlist(lapply(test, function(x)sum(is.na(x))))
+### build models 
+### randomforest
+
+library(randomForest)
+
+rf <- randomForest(total_cases ~ station_max_temp_c + 
+                     station_diur_temp_rng_c + 
+                     reanalysis_specific_humidity_g_per_kg, data=train)
+
+train_predict <- predict(rf, test)
+glimpse(train_predict)
+
+### 22 MAE
+mae <- mean(abs(train_predict - test$total_cases))
+
+### tree model
+library(tree)
+tree <- tree(total_cases ~ station_max_temp_c + 
+               station_diur_temp_rng_c + 
+               reanalysis_specific_humidity_g_per_kg, 
+             data = training_clean, 
+             subset = train_bart)
+
+summary(tree)
+
+### tree final submission MAE = 37
+tree_predict <- round(predict(tree, test))
+
+yhat <- round(predict(tree, training_clean[-train_bart, ]))
+head(dengue.test)
+
+dengue_test <- as.numeric(dengue.test$total_cases)
+
+tree_sub <- round(predict(tree, test))
+
+tree_final <- sub %>% 
+  cbind(tree_sub) %>% 
+  select(-total_cases)
+
+tree_final <- tree_final %>% 
+  rename(total_cases = tree_sub)
+
+write_csv(tree_final, "tree_final.csv")
+
+# Scatter plot
+plot(dengue_test, yhat, main = "Actual vs. Predicted Total Cases",
+     xlab = "Actual Total Cases", ylab = "Predicted Total Cases")
+abline(0, 1, col = "red")  # Add a diagonal line
+
+# Calculate MAE
+mae <- mean(abs(yhat - dengue_test))
+print(paste("Mean Absolute Error:", mae))
+
+### bayesian training MAE = 20.9
+install.packages("BART")
+library(BART)
+
+set.seed(123)
+train_bart <- sample(1:nrow(training_clean), 
+                     nrow(training_clean) / 2)
+
+x <- training_clean[, 6:25]
+y <- training_clean[, "total_cases"]
+
+xtrain <- x[train_bart, ]
+ytrain <- y[train_bart]
+
+xtest <- x[-train_bart, ]
+ytest <- y[-train_bart]
+
+xtrain <- as.data.frame(xtrain)
+ytrain <- as.numeric(ytrain)
+xtest <- as.data.frame(xtest)
+
+set.seed(123)
+bartfit <- gbart(xtrain, ytrain, x.test=xtest)
+
+yhat.bart <- bartfit$yhat.test.mean
+
+mean(abs(ytest-yhat.bart))
+
+ord <- order(bartfit$varcount.mean, decreasing = T) 
+bartfit$varcount.mean[ord]
+
+#### END BAYESIAN MODELING ####
+
+### bayesian ftw--not MAE = 41 ###
+### sj
+
+xtest <- as.data.frame(test[, 6:25])
+
+head(xtest)
+bay_pred <- predict(bartfit, xtest)
+
+bay_pred_vector <- as.vector(bay_pred)
+
+# Round the values to the nearest integer
+bay_pred_rounded <- round(bay_pred_vector)
+
+# If the predictions should be non-negative, ensure all values are >= 0
+bay_pred_rounded[bay_pred_rounded < 0] <- 0
+
+bay_sub <- sub %>% 
+  cbind(bay_pred_rounded) %>% 
+  select(-total_cases)
+
+bay_sub <- bay_sub %>% 
+  rename(total_score = bay_pred_rounded)
+
+write_csv(bay_sub, "bay_sub.csv")
+
+
+#### point forecast predictions ####
+
+na_dates <- is.na(training_clean$date)
+
+# Subset the data frame to show rows with NAs in the "date" column
+rows_with_na_dates <- training_clean[na_dates, ]
+
+# Print the rows with NAs in the "date" column
+print(rows_with_na_dates)
+
+test <- kNN(test, k=6)
+
+test <- subset(test[, 1:25])
+
+test <- test %>% 
+  mutate(date=ymd(week_start_date)) %>% 
+  as_tsibble(index=date, key=city) 
+
+
+training_clean <- training_clean %>% 
+  mutate(date=ymd(week_start_date)) %>% 
+  as_tsibble(index=date, key=city)
+
+training_filled <- training_clean %>% 
+  fill_gaps(total_cases = mean(total_cases))
+
+
+forecast_start_date <- ymd("2005-04-22")
+
+new_data <- training_clean %>% 
+  filter(city == "sj", date >= forecast_start_date)
+
+
+# Merge the forecasted values with the actual data
+merged_data <- new_data %>%
+  filter(city == "sj") %>%
+  left_join(forecast_values, by = "date")
+merged_data %>% 
+  select(date, forecast, total_cases.y) %>% 
+  head()
+
+# Calculate the Mean Absolute Error (MAE)
+mae <- mean(abs(merged_data$total_cases.y - merged_data$forecast))
+merged_data %>% 
+  select(total_cases.y, forecast, date)
+
+print(mae)
+colnames(merged_data)
+
+
+#### regression model mae 27.7 = my current score
+### arima model mase = 26.1
+lm_forecast <- training_clean %>% 
+  model(
+    lm=TSLM(total_cases ~ reanalysis_dew_point_temp_k +
+              reanalysis_max_air_temp_k)) %>% 
+  fabletools::forecast(new_data=test)  
+
+
+lm_final <- sub %>% 
+  cbind(lm_forecast$.mean) %>% 
+  select(-total_cases)
+
+lm_final <- lm_final%>% 
+  mutate(mean = round(lm_forecast$.mean)) %>% 
+  rename(total_cases = mean) 
+
+lm_final <- lm_final %>% 
+  select(-`lm_forecast$.mean`)
+
+write_csv(lm_final, "lm_final.csv")
+
+#### Predict Cities Seperately
 ###predict sj 5 years
 ###predct iq for 3 years
 
