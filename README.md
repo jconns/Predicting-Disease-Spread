@@ -58,9 +58,13 @@ For this purpose, I used regression analysis to determine appropriate variables 
 
 # Model Results on Training Data
 RandomForest = 22 AME
+
 Tree Model = 32 MAE
+
 BART Model = 30 MAE
+
 Dynamic Forecast = 29 MAE
+
 ARIMA Model = 27 MAE
 
 The randomForest model performed the best on the training data. However, the model performed worse on the test data. This is to be somewhat expected, but the difference was too large. The Arima and Dynamic model were also used for final submissions where the Arima scored the lowest MAE of 29.
